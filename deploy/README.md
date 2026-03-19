@@ -89,3 +89,14 @@ N8N_VERSION=1.84.1
 N8N_WEBHOOK_URL=http://localhost:5678/
 GENERIC_TIMEZONE=UTC
 ```
+
+## n8n Workflow Imports
+
+Import the workflow JSON files from `deploy/n8n/` into n8n:
+
+- `deploy/n8n/daily-greeting.json`
+- `deploy/n8n/nightly-summary.json`
+- `deploy/n8n/weekly-system-check.json`
+
+Each workflow reads memory before invoking OpenClaw and, when `memory_proposals` are returned, posts those proposals back to the memory API instead of writing files directly.
+

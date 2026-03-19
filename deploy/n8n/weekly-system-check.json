@@ -1,0 +1,503 @@
+{
+  "name": "ClawMind Weekly System Check",
+  "nodes": [
+    {
+      "id": "6c579b4e-5df7-4ee8-b1b7-b4d045b6dc34",
+      "name": "Sunday 03:00 UTC Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        220,
+        420
+      ],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "0 3 * * 0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "464e1266-8411-4c6f-a5bb-69d23fcfcf29",
+      "name": "Read Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        180
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/profile",
+        "options": {}
+      }
+    },
+    {
+      "id": "5157e871-d499-4291-a099-46c33b34f990",
+      "name": "Wrap Profile",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        180
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, profile: $json } }];"
+      }
+    },
+    {
+      "id": "5728f0e7-036b-4e64-9fe9-ad12b841651a",
+      "name": "Read Preferences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        340
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/preferences",
+        "options": {}
+      }
+    },
+    {
+      "id": "fcbb36a5-e87a-44d3-be3e-72c18da22110",
+      "name": "Wrap Preferences",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        340
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, preferences: $json } }];"
+      }
+    },
+    {
+      "id": "b0e24ca3-e4be-4816-8afa-6c904a4c94f5",
+      "name": "Check OpenClaw Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        500
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://openclaw:8080/health",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "c804022f-aeb6-4628-af42-fb2187269843",
+      "name": "Wrap OpenClaw Health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        500
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { openclaw_health: $json } }];"
+      }
+    },
+    {
+      "id": "6b11567f-252f-435b-9a48-c8ba75f7873b",
+      "name": "Check Memory Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        660
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/health",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "44c5430b-7d6c-4c91-bcd4-db35b8449888",
+      "name": "Wrap Memory Health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        660
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { memory_health: $json } }];"
+      }
+    },
+    {
+      "id": "7d0746a9-e7c7-45e7-8d5b-ec04b0e909f4",
+      "name": "Merge Profile+Preferences",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        940,
+        260
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "022ed899-0725-41a5-837a-9714255f09f0",
+      "name": "Merge Health Checks",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        940,
+        580
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "14c0b4f5-baef-4a74-b633-da70aa63a809",
+      "name": "Merge Workflow Context",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1180,
+        420
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "112e92c8-6145-40c3-ad3d-4120e4cee027",
+      "name": "Build Ops Summary Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        420
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{\n  json: {\n    request_id: `weekly-system-check-${Date.now()}`,\n    mode: 'scheduled',\n    user_id: $json.user_id || 'user_001',\n    channel: 'ops',\n    task: 'weekly_system_check',\n    user_message: '',\n    workflow_context: {\n      workflow_id: 'weekly-system-check',\n      trigger: 'cron',\n      profile: $json.profile,\n      preferences: $json.preferences,\n      health_checks: {\n        openclaw: $json.openclaw_health,\n        memory_api: $json.memory_health,\n      },\n    },\n    tool_context: {\n      notifications_enabled: true,\n    },\n  },\n}];"
+      }
+    },
+    {
+      "id": "89582000-032e-4e87-91b0-b9bc0af5dae1",
+      "name": "Call OpenClaw",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://openclaw:8080/respond",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "fa830db8-6eb6-44ae-a0d5-ae35e832ddcd",
+      "name": "Dispatch Ops Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OPS_WEBHOOK_URL || 'http://host.docker.internal:8090/ops' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { channel: 'ops', text: $json.response_text, request_id: $json.request_id } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "318d1c0c-95cc-468a-bd08-1c75d073f9c5",
+      "name": "Has Memory Proposals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1900,
+        520
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Array.isArray($json.memory_proposals) ? $json.memory_proposals.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "larger"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "5471d234-6703-47de-a438-03c6b2c5b11b",
+      "name": "Prepare Proposal Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        520
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "const proposals = Array.isArray($json.memory_proposals) ? $json.memory_proposals : [];\nreturn proposals.map((proposal) => ({ json: proposal }));"
+      }
+    },
+    {
+      "id": "8219ae4b-0e74-4e7f-a87a-60756a60f5f7",
+      "name": "Propose Memory Update",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2380,
+        520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://memory-api:8081/memory/proposals",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Sunday 03:00 UTC Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Preferences",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check OpenClaw Health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Memory Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Profile": {
+      "main": [
+        [
+          {
+            "node": "Wrap Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Preferences": {
+      "main": [
+        [
+          {
+            "node": "Wrap Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check OpenClaw Health": {
+      "main": [
+        [
+          {
+            "node": "Wrap OpenClaw Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Memory Health": {
+      "main": [
+        [
+          {
+            "node": "Wrap Memory Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Profile": {
+      "main": [
+        [
+          {
+            "node": "Merge Profile+Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Preferences": {
+      "main": [
+        [
+          {
+            "node": "Merge Profile+Preferences",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wrap OpenClaw Health": {
+      "main": [
+        [
+          {
+            "node": "Merge Health Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Memory Health": {
+      "main": [
+        [
+          {
+            "node": "Merge Health Checks",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Profile+Preferences": {
+      "main": [
+        [
+          {
+            "node": "Merge Workflow Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Health Checks": {
+      "main": [
+        [
+          {
+            "node": "Merge Workflow Context",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Workflow Context": {
+      "main": [
+        [
+          {
+            "node": "Build Ops Summary Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ops Summary Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenClaw",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenClaw": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Ops Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Memory Proposals?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Memory Proposals?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Proposal Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Proposal Items": {
+      "main": [
+        [
+          {
+            "node": "Propose Memory Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3f7b190b-5497-43dc-a93a-39c82981e8f7",
+  "tags": []
+}

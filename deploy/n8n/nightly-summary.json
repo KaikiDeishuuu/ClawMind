@@ -1,0 +1,439 @@
+{
+  "name": "ClawMind Nightly Summary",
+  "nodes": [
+    {
+      "id": "52ea3b62-09a2-4521-8127-c57d880ac6f6",
+      "name": "Daily 21:00 Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        220,
+        340
+      ],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "0 21 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "1d9d09f8-aaed-4117-817c-9575cac58aad",
+      "name": "Read Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        180
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/profile",
+        "options": {}
+      }
+    },
+    {
+      "id": "2e6c055c-7fc7-465f-8372-ae27f3276566",
+      "name": "Wrap Profile",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        180
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, profile: $json } }];"
+      }
+    },
+    {
+      "id": "2f240a03-c789-4ce2-934b-1d5261748847",
+      "name": "Read Preferences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        340
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/preferences",
+        "options": {}
+      }
+    },
+    {
+      "id": "9f4f5ff6-7d2b-40bb-88e6-ae94271cd0b1",
+      "name": "Wrap Preferences",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        340
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, preferences: $json } }];"
+      }
+    },
+    {
+      "id": "931bdd90-ac65-40b2-bebd-988941eb175b",
+      "name": "Search Recent Focus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        500
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "today focus completed events tomorrow preparation"
+            },
+            {
+              "name": "scopes",
+              "value": "active_projects"
+            },
+            {
+              "name": "scopes",
+              "value": "logs"
+            },
+            {
+              "name": "top_k",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "11af48c9-6bf9-45b3-bc16-654beb4813b7",
+      "name": "Wrap Recent Focus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        500
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, recent_focus: $json } }];"
+      }
+    },
+    {
+      "id": "b9fbab32-6c6e-43a2-929e-0695714d0096",
+      "name": "Merge Profile+Preferences",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        940,
+        260
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "391c7a02-25fc-4729-aae3-f985b1b84680",
+      "name": "Merge All Memory",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1180,
+        340
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "90af0545-96c0-48f1-a051-9a7a3790af71",
+      "name": "Build Summary Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        340
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{\n  json: {\n    request_id: `nightly-summary-${Date.now()}`,\n    mode: 'scheduled',\n    user_id: $json.user_id,\n    channel: 'telegram',\n    task: 'nightly_summary',\n    user_message: '',\n    workflow_context: {\n      workflow_id: 'nightly-summary',\n      trigger: 'cron',\n      profile: $json.profile,\n      preferences: $json.preferences,\n      recent_focus: $json.recent_focus,\n    },\n    tool_context: {\n      calendar_enabled: true,\n      tasks_enabled: true,\n    },\n  },\n}];"
+      }
+    },
+    {
+      "id": "fb0e4940-d34d-47b5-860f-ac5df2b699e0",
+      "name": "Call OpenClaw",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        340
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://openclaw:8080/respond",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "1bba0a11-3b5b-4754-8339-f3af16eeadcf",
+      "name": "Dispatch Nightly Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NOTIFICATION_WEBHOOK_URL || 'http://host.docker.internal:8090/notify' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { channel: 'telegram', user_id: 'user_001', text: $json.response_text, request_id: $json.request_id } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "f1b05832-8033-41fd-9c08-f1323fbf280f",
+      "name": "Has Memory Proposals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1900,
+        440
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Array.isArray($json.memory_proposals) ? $json.memory_proposals.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "larger"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "0c73abb6-e46c-4f9f-9abc-9d3c4d711a6a",
+      "name": "Prepare Proposal Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        440
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "const proposals = Array.isArray($json.memory_proposals) ? $json.memory_proposals : [];\nreturn proposals.map((proposal) => ({ json: proposal }));"
+      }
+    },
+    {
+      "id": "84a0f6cd-b3b2-4c38-99e2-24f716e12f2f",
+      "name": "Propose Memory Update",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2380,
+        440
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://memory-api:8081/memory/proposals",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Daily 21:00 Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Preferences",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Recent Focus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Profile": {
+      "main": [
+        [
+          {
+            "node": "Wrap Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Preferences": {
+      "main": [
+        [
+          {
+            "node": "Wrap Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Recent Focus": {
+      "main": [
+        [
+          {
+            "node": "Wrap Recent Focus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Profile": {
+      "main": [
+        [
+          {
+            "node": "Merge Profile+Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Preferences": {
+      "main": [
+        [
+          {
+            "node": "Merge Profile+Preferences",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Profile+Preferences": {
+      "main": [
+        [
+          {
+            "node": "Merge All Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Recent Focus": {
+      "main": [
+        [
+          {
+            "node": "Merge All Memory",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All Memory": {
+      "main": [
+        [
+          {
+            "node": "Build Summary Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenClaw",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenClaw": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Nightly Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Memory Proposals?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Memory Proposals?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Proposal Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Proposal Items": {
+      "main": [
+        [
+          {
+            "node": "Propose Memory Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "39448715-9a7e-4ae7-ade2-0c6c0c4788f9",
+  "tags": []
+}
