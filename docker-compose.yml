@@ -1,0 +1,71 @@
+services:
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    container_name: clawmind-openclaw
+    restart: unless-stopped
+    depends_on:
+      memory-api:
+        condition: service_started
+    environment:
+      OPENCLAW_PORT: ${OPENCLAW_PORT:-8080}
+      OPENCLAW_MEMORY_API_URL: http://memory-api:8081
+      OPENCLAW_N8N_BASE_URL: http://n8n:5678
+      OPENCLAW_MODEL_ENDPOINT: ${OPENCLAW_MODEL_ENDPOINT:-http://host.docker.internal:11434}
+      OPENCLAW_MEMORY_WRITE_MODE: api_only
+    ports:
+      - "${OPENCLAW_PORT:-8080}:8080"
+    volumes:
+      - ./data/openclaw:/var/lib/openclaw
+    networks:
+      - clawmind_net
+
+  memory-api:
+    build:
+      context: .
+      dockerfile: docker/memory-api.Dockerfile
+    container_name: clawmind-memory-api
+    restart: unless-stopped
+    environment:
+      CLAWMIND_MEMORY_ROOT: /data/memory
+    command:
+      - uvicorn
+      - memory_api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8081"
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data/memory:/data/memory
+    networks:
+      - clawmind_net
+
+  n8n:
+    image: n8nio/n8n:${N8N_VERSION:-1.84.1}
+    container_name: clawmind-n8n
+    restart: unless-stopped
+    depends_on:
+      openclaw:
+        condition: service_started
+      memory-api:
+        condition: service_started
+    environment:
+      N8N_HOST: n8n
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-UTC}
+      OPENCLAW_API_BASE_URL: http://openclaw:8080
+      MEMORY_API_BASE_URL: http://memory-api:8081
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+    networks:
+      - clawmind_net
+
+networks:
+  clawmind_net:
+    name: clawmind_net
+    driver: bridge

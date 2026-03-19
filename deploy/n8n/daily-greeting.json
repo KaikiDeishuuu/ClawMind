@@ -1,0 +1,337 @@
+{
+  "name": "ClawMind Daily Greeting",
+  "nodes": [
+    {
+      "id": "9a11fdaa-3190-417d-91a8-f9dd49300f12",
+      "name": "Weekday 08:00 Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8a675097-62e5-4c6c-9851-f8b59a0bbb20",
+      "name": "Read Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        220
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/profile",
+        "options": {}
+      }
+    },
+    {
+      "id": "4fb6f522-65b7-4d41-966b-138cd3ecdc91",
+      "name": "Wrap Profile",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        220
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, profile: $json } }];"
+      }
+    },
+    {
+      "id": "816dbecb-6aab-487c-ad17-bc6b30552b39",
+      "name": "Read Preferences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        420
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://memory-api:8081/memory/user_001/preferences",
+        "options": {}
+      }
+    },
+    {
+      "id": "84318c76-24fa-43a0-b800-a8449220eadc",
+      "name": "Wrap Preferences",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        420
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "return [{ json: { user_id: $json.user_id, preferences: $json } }];"
+      }
+    },
+    {
+      "id": "4b416392-b6d9-4316-ab61-29699fbffa85",
+      "name": "Merge Memory Reads",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        940,
+        320
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition"
+      }
+    },
+    {
+      "id": "ed5c9743-e92e-4626-8fc2-0241cdf4c45b",
+      "name": "Build Greeting Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "const now = new Date().toISOString();\nreturn [{\n  json: {\n    request_id: `daily-greeting-${Date.now()}`,\n    mode: 'scheduled',\n    user_id: $json.user_id,\n    channel: 'telegram',\n    task: 'scheduled_greeting',\n    user_message: '',\n    workflow_context: {\n      workflow_id: 'daily-greeting',\n      trigger: 'cron',\n      fired_at: now,\n      profile: $json.profile,\n      preferences: $json.preferences,\n    },\n    tool_context: {\n      weather_enabled: true,\n      calendar_enabled: true,\n    },\n  },\n}];"
+      }
+    },
+    {
+      "id": "8604615e-2d1a-42de-bb1e-3a5a8f641442",
+      "name": "Call OpenClaw",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://openclaw:8080/respond",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7a7a43e7-9597-4da6-89d7-fbc7898eaf4a",
+      "name": "Dispatch Greeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NOTIFICATION_WEBHOOK_URL || 'http://host.docker.internal:8090/notify' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { channel: 'telegram', user_id: 'user_001', text: $json.response_text, request_id: $json.request_id } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7ad71edd-ff81-4a0a-ab1b-507cd1c60a8c",
+      "name": "Has Memory Proposals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1660,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Array.isArray($json.memory_proposals) ? $json.memory_proposals.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "larger"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "3a72cdda-eafd-4a00-aba8-4de5f43a4abd",
+      "name": "Prepare Proposal Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        420
+      ],
+      "parameters": {
+        "language": "JavaScript",
+        "jsCode": "const proposals = Array.isArray($json.memory_proposals) ? $json.memory_proposals : [];\nreturn proposals.map((proposal) => ({ json: proposal }));"
+      }
+    },
+    {
+      "id": "380aae9e-9b96-4bde-b28e-d384bcfef438",
+      "name": "Propose Memory Update",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2140,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://memory-api:8081/memory/proposals",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Weekday 08:00 Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Profile": {
+      "main": [
+        [
+          {
+            "node": "Wrap Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Preferences": {
+      "main": [
+        [
+          {
+            "node": "Wrap Preferences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Profile": {
+      "main": [
+        [
+          {
+            "node": "Merge Memory Reads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Preferences": {
+      "main": [
+        [
+          {
+            "node": "Merge Memory Reads",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Memory Reads": {
+      "main": [
+        [
+          {
+            "node": "Build Greeting Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Greeting Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenClaw",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenClaw": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Greeting",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Memory Proposals?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Memory Proposals?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Proposal Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Proposal Items": {
+      "main": [
+        [
+          {
+            "node": "Propose Memory Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7c00b182-4b0b-4d4a-a497-aa40a6fd813a",
+  "tags": []
+}
