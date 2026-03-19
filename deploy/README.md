@@ -100,3 +100,11 @@ Import the workflow JSON files from `deploy/n8n/` into n8n:
 
 Each workflow reads memory before invoking OpenClaw and, when `memory_proposals` are returned, posts those proposals back to the memory API instead of writing files directly.
 
+## OpenClaw Agent Files
+
+The OpenClaw-specific runtime artifacts live in `deploy/openclaw/`:
+
+- `agent_config.yaml`
+- `instruction.md`
+- `test.md`
+
