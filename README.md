@@ -70,3 +70,18 @@ export CLAWMIND_MEMORY_ROOT=/absolute/path/to/memory-root
   "observed_at": "2026-03-19T08:00:00Z"
 }
 ```
+
+## Docker Compose Deployment
+
+A complete three-service deployment topology is included in `docker-compose.yml` and documented in `deploy/README.md`.
+
+- `openclaw` listens on `http://openclaw:8080`
+- `memory-api` listens on `http://memory-api:8081`
+- `n8n` listens on `http://n8n:5678`
+
+Persistent host storage is mounted from:
+
+- `./data/memory`
+- `./data/openclaw`
+- `./data/n8n`
+
